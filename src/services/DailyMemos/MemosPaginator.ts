@@ -53,16 +53,23 @@ function transformAPIToMdItemMemo(param: APIMemo): MdItemMemo {
 
 	let targetFirstLine = "";
 
-	if (taskMatch) {
-		targetFirstLine = `${taskMatch[1]} ${time} ${taskMatch[2]}`;
-	} else if (isCode) {
+	// if (taskMatch) {
+	// 	targetFirstLine = `${taskMatch[1]} ${time} ${taskMatch[2]}`;
+	// } else if (isCode) {
+	// 	targetFirstLine = `- ${time}`; // 首行不允许存在代码片段
+	// 	otherLine.unshift(firstLine);
+	// } else {
+	// 	targetFirstLine = `- ${time} ${firstLine.replace(/^- /, "")}`;
+	// }
+
+	// targetFirstLine += ` #daily-record ^${timestamp}`;
+
+	if (isCode) {
 		targetFirstLine = `- ${time}`; // 首行不允许存在代码片段
 		otherLine.unshift(firstLine);
 	} else {
-		targetFirstLine = `- ${time} ${firstLine.replace(/^- /, "")}`;
+		targetFirstLine = `- ${time} ${firstLine}`;
 	}
-
-	targetFirstLine += ` #daily-record ^${timestamp}`;
 
 	const targetOtherLine = otherLine?.length //剩余行
 		? "\n" +
