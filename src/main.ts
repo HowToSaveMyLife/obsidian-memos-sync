@@ -7,7 +7,7 @@ import { appHasDailyNotesPluginLoaded } from "obsidian-daily-notes-interface";
 
 const MEMOS_SYNC_DEFAULT_SETTINGS: MemosSyncPluginSettings = {
 	dailyMemosHeader: "Memos",
-	memosAPIVersion: "v0.19.1",
+	memosAPIVersion: "v0.25.1",
 	memosAPIURL: "https://usememos.com",
 	memosAPIToken: "",
 	attachmentFolder: "Attachments",
@@ -139,18 +139,15 @@ class MemosSyncSettingTab extends PluginSettingTab {
 
 		new Setting(this.containerEl)
 			.setName("Memos API version")
-			.setDesc("Which version your Memos server.")
+			.setDesc("Which version your Memos server. Only v0.25.1 is supported.")
 			.addDropdown((dropDown) => {
 				dropDown.addOptions({
-					"v0.19.1": "before v0.21.x",
-					"v0.22.0": "v0.22.x ~ v0.23.x",
-					"v0.24.0": "v0.24.x",
 					"v0.25.1": "v0.25.1 and later",
 				});
 				dropDown.setValue(this.plugin.settings.memosAPIVersion);
 				dropDown.onChange((value) => {
 					this.saveSettings({
-						memosAPIVersion: value as "v0.19.1" | "v0.22.0" | "v0.24.0" | "v0.25.1",
+						memosAPIVersion: value as "v0.25.1",
 					});
 				});
 			});

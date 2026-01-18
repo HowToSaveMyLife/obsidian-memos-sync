@@ -9,8 +9,9 @@ export interface MemosSyncPluginSettings {
 	attachmentFolder: string;
 	/**
 	 * Memos Version, for using different version of memos API.
+	 * Only v0.25.1 is supported.
 	 */
-	memosAPIVersion: "v0.24.0" | "v0.22.0" | "v0.19.1" | "v0.25.1";
+	memosAPIVersion: "v0.25.1";
 	/**
 	 * Usememos API URL. Should be like `https://api.usememos.com/api/v1`.
 	 */
