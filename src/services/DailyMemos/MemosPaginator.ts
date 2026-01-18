@@ -1,6 +1,4 @@
-import { DailyRecordType, MemosClient0191 } from "@/api/memos-v0.19.1";
 import * as log from "@/utils/log";
-import { AuthCli, Memo, MemoListPaginator } from "@/api/memos-v0.22.0-adapter";
 import {
 	AuthCli as AuthCli0251,
 	Memo as Memo0251,
@@ -100,227 +98,6 @@ export type MemosPaginator = {
 	) => Promise<string>;
 };
 
-export class MemosPaginator0191 {
-	private limit: number;
-	private offset: number;
-	private lastTime: string;
-
-	constructor(
-		private client: MemosClient0191,
-		lastTime?: string,
-		private filter?: (
-			date: string,
-			dailyMemosForDate: Record<string, string>
-		) => boolean
-	) {
-		this.limit = 50;
-		this.offset = 0;
-		this.lastTime = lastTime || "";
-	}
-
-	/**
-	 * return lastTime
-	 * @param handle
-	 * @returns
-	 */
-	foreach = async (
-		handle: ([today, dailyMemosForToday]: [
-			string, // date, format "YYYY-MM-DD"
-			Record<string, string> // daily memos for today, map<timestamp, content>
-		]) => Promise<void>
-	) => {
-		this.offset = 0; // iterate from newest, reset offset
-		while (true) {
-			const memos =
-				(await this.client.listMemos(this.limit, this.offset)) || [];
-
-			const mostRecentRecordTimeStamp = memos[0]?.createdAt
-				? window.moment(memos[0]?.createdAt).unix()
-				: memos[0]?.createdTs;
-
-			if (
-				!memos.length ||
-				mostRecentRecordTimeStamp * 1000 < Number(this.lastTime)
-			) {
-				// bug if one memo pinned to top
-				// but it's not a big deal, use sync for current daily notes
-				log.debug("No new daily memos found.");
-				this.lastTime = Date.now().toString();
-				return this.lastTime;
-			}
-
-			const dailyMemosByDay = this.generalizeDailyMemos(memos);
-
-			await Promise.all(
-				Object.entries(dailyMemosByDay).map(
-					async ([today, dailyMemosForToday]) => {
-						if (
-							this.filter &&
-							!this.filter(today, dailyMemosForToday)
-						) {
-							return;
-						}
-						await handle([today, dailyMemosForToday]);
-					}
-				)
-			);
-
-			this.lastTime = String(mostRecentRecordTimeStamp * 1000);
-			this.offset += memos.length;
-		}
-	};
-
-	// generalize daily memos by day and timestamp
-	// map<date, map<timestamp, formattedRecord>>
-	private generalizeDailyMemos = (memos: DailyRecordType[]) => {
-		const dailyMemosByDay: Record<string, Record<string, string>> = {};
-		for (const memo of memos) {
-			if (!memo.content && !memo.resourceList?.length) {
-				continue;
-			}
-
-			const { createdTs, createdAt } = memo;
-			const timestampInput = createdAt
-				? window.moment(createdAt).unix()
-				: createdTs;
-
-			const mdItemMemo = transformAPIToMdItemMemo({
-				timestamp: timestampInput,
-				content: memo.content,
-				resources: memo.resourceList,
-			});
-
-			if (!dailyMemosByDay[mdItemMemo.date]) {
-				dailyMemosByDay[mdItemMemo.date] = {};
-			}
-
-			dailyMemosByDay[mdItemMemo.date][mdItemMemo.timestamp] =
-				mdItemMemo.content;
-		}
-		return dailyMemosByDay;
-	};
-}
-
-export class MemosPaginator0220 {
-	private pageSize: number;
-	private pageToken: string;
-	private lastTime: string;
-
-	constructor(
-		private memoListPaginator: MemoListPaginator,
-		private authCli: AuthCli,
-		lastTime?: string,
-		private filter?: (
-			date: string,
-			dailyMemosForDate: Record<string, string>
-		) => boolean
-	) {
-		this.pageSize = 50;
-		this.pageToken = "";
-		this.lastTime = lastTime || "";
-	}
-
-	/**
-	 * return lastTime
-	 * @param handle
-	 * @returns
-	 */
-	foreach = async (
-		handle: ([today, dailyMemosForToday]: [
-			string, // date, format "YYYY-MM-DD"
-			Record<string, string> // daily memos for today, map<timestamp, content>
-		]) => Promise<void>
-	) => {
-		// because memos pagination is from newest to oldest
-		// so we always need to iterate from newest and reset pageToken
-		// what ever we are doing a full sync or delta sync
-		this.pageToken = ""; 
-		const currentUser = await this.authCli.getAuthStatus({});
-		while (true) {
-			const resp = await this.memoListPaginator.listMemos(
-				this.pageSize,
-				this.pageToken,
-				currentUser
-			);
-			log.debug(
-				`resp for pageToken ${this.pageToken}: ${JSON.stringify(resp)}`
-			);
-			if (!resp) {
-				log.debug("No new daily memos found.");
-				this.lastTime = Date.now().toString();
-				return this.lastTime;
-			}
-			const { memos, nextPageToken } = resp;
-
-			const mostRecentRecordTimeStamp = memos[0]?.updateTime
-				? window.moment(memos[0]?.updateTime).unix()
-				: window.moment(memos[0]?.createTime).unix();
-
-			if (
-				!memos.length ||
-				mostRecentRecordTimeStamp * 1000 < Number(this.lastTime)
-			) {
-				// bug if one memo pinned to top
-				// but it's not a big deal, use sync for current daily notes
-				log.debug("No new daily memos found.");
-				this.lastTime = Date.now().toString();
-				return this.lastTime;
-			}
-
-			const dailyMemosByDay = this.generalizeDailyMemos(memos);
-
-			await Promise.all(
-				Object.entries(dailyMemosByDay).map(
-					async ([today, dailyMemosForToday]) => {
-						if (
-							this.filter &&
-							!this.filter(today, dailyMemosForToday)
-						) {
-							return;
-						}
-						await handle([today, dailyMemosForToday]);
-					}
-				)
-			);
-
-			this.lastTime = String(mostRecentRecordTimeStamp * 1000);
-			if (!nextPageToken) {
-				return this.lastTime;
-			}
-			this.pageToken = nextPageToken;
-		}
-	};
-
-	// generalize daily memos by day and timestamp
-	// map<date, map<timestamp, formattedRecord>>
-	private generalizeDailyMemos = (memos: Memo[]) => {
-		const dailyMemosByDay: Record<string, Record<string, string>> = {};
-		for (const memo of memos) {
-			if (!memo.content && !memo.resources?.length) {
-				continue;
-			}
-
-			const resources = memo.resources?.map(
-				convert0220ResourceToAPIResource
-			);
-
-			const mdItemMemo = transformAPIToMdItemMemo({
-				timestamp: window.moment(memo.createTime).unix(),
-				content: memo.content,
-				resources: resources,
-			});
-
-			if (!dailyMemosByDay[mdItemMemo.date]) {
-				dailyMemosByDay[mdItemMemo.date] = {};
-			}
-
-			dailyMemosByDay[mdItemMemo.date][mdItemMemo.timestamp] =
-				mdItemMemo.content;
-		}
-		return dailyMemosByDay;
-	};
-}
-
 export class MemosPaginator0251 {
 	private pageSize: number;
 	private pageToken: string
@@ -411,17 +188,17 @@ export class MemosPaginator0251 {
 		}
 	};
 
-	
+
 	// generalize daily memos by day and timestamp
 	// map<date, map<timestamp, formattedRecord>>
-	private generalizeDailyMemos = (memos: Memo[]) => {
+	private generalizeDailyMemos = (memos: Memo0251[]) => {
 		const dailyMemosByDay: Record<string, Record<string, string>> = {};
 		for (const memo of memos) {
-			if (!memo.content && !memo.resources?.length) {
+			if (!memo.content && !memo.attachments?.length) {
 				continue;
 			}
 
-			const resources = memo.resources?.map(
+			const resources = memo.attachments?.map(
 				convert0220ResourceToAPIResource
 			);
 

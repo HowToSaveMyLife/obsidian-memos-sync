@@ -1,4 +1,4 @@
-import { Resource } from "@/api/memos-v0.22.0-adapter";
+import { Attachment } from "@/api/memos-v0.25.1-adapter";
 
 export type APIResource = {
 	name?: string;
@@ -10,15 +10,15 @@ export type APIResource = {
 };
 
 export function convert0220ResourceToAPIResource(
-	resource: Resource
+	attachment: Attachment
 ): APIResource {
 	return {
-		id: resource.name.replace("resources/", ""),
-		filename: resource.filename,
-		externalLink: resource.externalLink,
-		name: resource.name,
-		type: resource.type,
-		uid: resource.uid,
+		id: attachment.name.replace("resources/", "").replace("attachments/", ""),
+		filename: attachment.filename,
+		externalLink: attachment.externalLink,
+		name: attachment.name,
+		type: attachment.type,
+		uid: attachment.uid,
 	};
 }
 
